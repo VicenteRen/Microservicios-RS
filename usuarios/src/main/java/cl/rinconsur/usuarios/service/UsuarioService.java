@@ -158,9 +158,38 @@ public class UsuarioService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El teléfono ya está registrado por otro usuario");
         }
 
-        if (nombre != null && !nombre.isBlank()) {
-            usuario.setNombreCompleto(nombre.trim());
-        }
+        
+    if (nombre == null) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "El nombre es obligatorio"
+        );
+    }
+
+    String nombreLimpio = nombre.trim().replaceAll(" +", " ");
+
+    if (nombreLimpio.length() < 2
+            || nombreLimpio.length() > 100
+            || !nombreLimpio.matches("^[\\p{L}]+(?: [\\p{L}]+)*$")) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "El nombre debe tener entre 2 y 100 caracteres, solo letras y espacios"
+        );
+    }
+
+    String[] palabras = nombreLimpio.toLowerCase(
+            java.util.Locale.forLanguageTag("es-CL")
+    ).split(" ");
+
+    for (int i = 0; i < palabras.length; i++) {
+        palabras[i] = palabras[i].substring(0, 1)
+                .toUpperCase(java.util.Locale.forLanguageTag("es-CL"))
+                + palabras[i].substring(1);
+    }
+
+    usuario.setNombreCompleto(String.join(" ", palabras));
+
+
         usuario.setCorreo(correoLimpio);
         usuario.setTelefono(telefonoLimpio);
         return repository.save(usuario);
@@ -190,6 +219,7 @@ public class UsuarioService {
         if (!usuario.getContrasena().equals(encriptarConSal(contrasenaActual))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseña actual es incorrecta");
         }
+        validarNuevaContrasena(nuevaContrasena);
         usuario.setContrasena(encriptarConSal(nuevaContrasena));
         usuario.setPrimerIngreso(false);
         return repository.save(usuario);
@@ -202,6 +232,7 @@ public class UsuarioService {
                 || nuevaContrasena == null || nuevaContrasena.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Todos los campos son obligatorios");
         }
+        validarNuevaContrasena(nuevaContrasena);
         usuario.setPreguntaSeguridad(preguntaSeguridad.trim());
         usuario.setRespuestaSeguridad(encriptarConSal(respuestaSeguridad.trim().toLowerCase()));
         usuario.setContrasena(encriptarConSal(nuevaContrasena));
@@ -289,4 +320,22 @@ public class UsuarioService {
         repository.save(usuario);
         return true;
     }
+
+
+    private void validarNuevaContrasena(String contrasena) {
+        if (contrasena == null
+                || contrasena.length() < 8
+                || contrasena.chars().noneMatch(Character::isUpperCase)
+                || contrasena.chars().noneMatch(Character::isDigit)
+                || contrasena.chars().noneMatch(
+                        c -> !Character.isLetterOrDigit(c)
+                                && !Character.isWhitespace(c)
+                )) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "La contraseña debe tener mínimo 8 caracteres, una mayúscula, un número y un carácter especial"
+            );
+        }
+    }
+
 }
