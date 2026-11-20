@@ -51,13 +51,34 @@ public class RegistroObservacionController {
         return service.listarPorUsuario(usuarioId);
     }
 
-    @Operation(summary = "Deshabilitar observación (Borrado lógico)", description = "Cambia el estado activo a false sin eliminar físicamente el registro de MySQL.")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarLogicamente(@PathVariable Long id) {
-        boolean deshabilitado = service.deshabilitar(id);
-        if (!deshabilitado) {
-            return ResponseEntity.notFound().build();
+    
+    public record SolicitudAnulacion(
+            String rut,
+            String contrasena,
+            String motivo
+    ) {}
+
+    @Operation(
+        summary = "Anular una observación",
+        description = "Verifica la contraseña y los permisos antes de anular el registro"
+    )
+    @PutMapping("/{id}/anular")
+    public ResponseEntity<Void> anular(
+            @PathVariable Long id,
+            @RequestBody SolicitudAnulacion datos
+    ) {
+        if (datos == null) {
+            return ResponseEntity.badRequest().build();
         }
+
+        service.anular(
+                id,
+                datos.rut(),
+                datos.contrasena(),
+                datos.motivo()
+        );
+
         return ResponseEntity.noContent().build();
     }
+
 }
