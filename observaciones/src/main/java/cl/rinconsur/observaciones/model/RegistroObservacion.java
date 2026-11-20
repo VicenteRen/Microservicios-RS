@@ -51,6 +51,17 @@ public class RegistroObservacion {
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 
+
+    @Column(name = "anulado_por")
+    private Long anuladoPor;
+
+    @Column(name = "motivo_anulacion", length = 255)
+    private String motivoAnulacion;
+
+    @Column(name = "fecha_anulacion")
+    private LocalDateTime fechaAnulacion;
+
+
     @PrePersist
     protected void antesDeGuardar() {
         if (this.fechaHora == null || this.fechaHora.isBlank()) {

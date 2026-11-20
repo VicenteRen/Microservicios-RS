@@ -105,19 +105,36 @@ class RegistroObservacionControllerTest {
                 .andExpect(jsonPath("$[0].usuarioId").value(1));
     }
 
+    
     @Test
-    void eliminarLogicamente_conIdExistente_retornaNoContent() throws Exception {
-        when(observacionService.deshabilitar(1L)).thenReturn(true);
+    void anular_conSolicitudValida_retornaNoContent() throws Exception {
+        String solicitud = """
+            {
+                "rut": "214297353",
+                "contrasena": "Clave123!",
+                "motivo": "Registro duplicado por error"
+            }
+            """;
 
-        mockMvc.perform(delete("/api/observaciones/1"))
+        mockMvc.perform(put("/api/observaciones/1/anular")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(solicitud))
                 .andExpect(status().isNoContent());
+
+        org.mockito.Mockito.verify(observacionService).anular(
+                1L,
+                "214297353",
+                "Clave123!",
+                "Registro duplicado por error"
+        );
     }
 
     @Test
-    void eliminarLogicamente_conIdInexistente_retornaNotFound() throws Exception {
-        when(observacionService.deshabilitar(99L)).thenReturn(false);
-
-        mockMvc.perform(delete("/api/observaciones/99"))
-                .andExpect(status().isNotFound());
+    void anular_sinDatos_retornaBadRequest() throws Exception {
+        mockMvc.perform(put("/api/observaciones/1/anular")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("null"))
+                .andExpect(status().isBadRequest());
     }
+
 }
