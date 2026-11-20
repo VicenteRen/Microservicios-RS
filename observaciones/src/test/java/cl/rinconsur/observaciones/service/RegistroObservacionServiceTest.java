@@ -79,34 +79,41 @@ class RegistroObservacionServiceTest {
         assertEquals(2L, resultado.get(0).getUsuarioId());
     }
 
-    @Test
-    void deshabilitar_conRegistroActivo_cambiaActivoAFalseYRetornaTrue() {
-        // preparar
-        RegistroObservacion activo = new RegistroObservacion();
-        activo.setId(1L);
-        activo.setActivo(true);
-
-        when(repository.findById(1L)).thenReturn(Optional.of(activo));
-
-        // ejecucion
-        boolean resultado = service.deshabilitar(1L);
-
-        // comprobar
-        assertTrue(resultado);
-        assertFalse(activo.getActivo());
-        verify(repository, times(1)).save(activo);
-    }
+   
 
     @Test
-    void deshabilitar_conRegistroInexistente_retornaFalse() {
-        // preparar
-        when(repository.findById(99L)).thenReturn(Optional.empty());
+    void anular_conMotivoCorto_retornaBadRequest() {
+        org.springframework.web.server.ResponseStatusException error =
+                assertThrows(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        () -> service.anular(
+                                1L,
+                                "214297353",
+                                "Clave123!",
+                                "Error"
+                        )
+                );
 
-        // ejecucion
-        boolean resultado = service.deshabilitar(99L);
-
-        // comprobar
-        assertFalse(resultado);
+        assertEquals(400, error.getStatusCode().value());
         verify(repository, never()).save(any());
     }
+
+    @Test
+    void anular_sinContrasena_retornaBadRequest() {
+        org.springframework.web.server.ResponseStatusException error =
+                assertThrows(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        () -> service.anular(
+                                1L,
+                                "214297353",
+                                "",
+                                "Registro duplicado por error"
+                        )
+                );
+
+        assertEquals(400, error.getStatusCode().value());
+        verify(repository, never()).save(any());
+    }
+
+    
 }
