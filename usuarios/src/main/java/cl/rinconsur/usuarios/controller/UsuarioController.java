@@ -182,16 +182,28 @@ public class UsuarioController {
         @ApiResponse(responseCode = "400", description = "RUT o nueva contraseña faltantes"),
         @ApiResponse(responseCode = "404", description = "Usuario activo no encontrado para el RUT indicado")
     })
+    
     @PutMapping("/recuperar-contrasena")
-    public ResponseEntity<Void> recuperarContrasena(@RequestBody Map<String, String> datos) {
-        String rut = datos != null ? datos.get("rut") : null;
-        String nuevaContrasena = datos != null ? datos.get("nuevaContrasena") : null;
-        if (rut == null || rut.isBlank() || nuevaContrasena == null || nuevaContrasena.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "RUT y nueva contraseña son obligatorios");
+    public ResponseEntity<Void> recuperarContrasena(
+            @RequestBody Map<String, String> datos
+    ) {
+        if (datos == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Debes completar todos los campos"
+            );
         }
-        boolean exito = service.restablecerContrasena(rut, nuevaContrasena);
-        return exito ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+
+        service.restablecerContrasena(
+                datos.get("rut"),
+                datos.get("preguntaSeguridad"),
+                datos.get("respuestaSeguridad"),
+                datos.get("nuevaContrasena")
+        );
+
+        return ResponseEntity.ok().build();
     }
+
 
     @Operation(summary = "Actualizar foto de perfil (avatar)", description = "Recibe la imagen del usuario y la almacena en formato binario en MySQL.")
     @ApiResponses({

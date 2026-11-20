@@ -217,15 +217,59 @@ public class UsuarioService {
         return usuario.getRespuestaSeguridad().equals(encriptarConSal(respuesta.toLowerCase()));
     }
 
-    public boolean restablecerContrasena(String rut, String nuevaContrasena) {
-        Optional<Usuario> usuarioOpt = repository.findByRutIgnoreCaseAndActivoTrue(rut.trim());
-        if (usuarioOpt.isEmpty()) return false;
-        Usuario usuario = usuarioOpt.get();
+    
+    public boolean restablecerContrasena(
+            String rut,
+            String pregunta,
+            String respuesta,
+            String nuevaContrasena
+    ) {
+        if (rut == null || pregunta == null || respuesta == null
+                || nuevaContrasena == null
+                || rut.isBlank() || pregunta.isBlank()
+                || respuesta.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Todos los campos son obligatorios"
+            );
+        }
+
+        boolean valida = nuevaContrasena.length() >= 8
+                && nuevaContrasena.chars().anyMatch(Character::isUpperCase)
+                && nuevaContrasena.chars().anyMatch(Character::isDigit)
+                && nuevaContrasena.chars().anyMatch(
+                        c -> !Character.isLetterOrDigit(c)
+                                && !Character.isWhitespace(c)
+                );
+
+        if (!valida) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "La contraseña debe tener al menos 8 caracteres, una mayúscula, un número y un carácter especial"
+            );
+        }
+
+        if (!verificarIdentidadRecuperacion(rut, pregunta, respuesta)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Los datos de seguridad son incorrectos"
+            );
+        }
+
+        Usuario usuario = repository
+                .findByRutIgnoreCaseAndActivoTrue(rut.trim())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "No fue posible verificar la identidad"
+                ));
+
         usuario.setContrasena(encriptarConSal(nuevaContrasena));
         usuario.setPrimerIngreso(false);
         repository.save(usuario);
+
         return true;
     }
+
 
     public Usuario actualizarAvatar(Long id, byte[] avatar) {
         Usuario usuario = buscarPorId(id);
