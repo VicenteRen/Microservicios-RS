@@ -49,9 +49,8 @@ public class Usuario {
     @Column(name = "nombre_rol", nullable = false, length = 50)
     private String rolNombre = "Observador";
 
-    @Lob
-    @Column(name = "avatar", columnDefinition = "LONGBLOB")
-    private byte[] avatar;
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
 
     @Column(name = "primer_ingreso", nullable = false)
     private Boolean primerIngreso = true;

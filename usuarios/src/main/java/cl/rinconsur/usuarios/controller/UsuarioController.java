@@ -1,6 +1,7 @@
 package cl.rinconsur.usuarios.controller;
 
 import cl.rinconsur.usuarios.model.Usuario;
+import cl.rinconsur.usuarios.service.AvatarStorageService;
 import cl.rinconsur.usuarios.service.UsuarioService;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,10 +10,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -32,9 +36,11 @@ import java.util.Map;
 public class UsuarioController {
 
     private final UsuarioService service;
+    private final AvatarStorageService avatarStorageService;
 
-    public UsuarioController(UsuarioService service) {
+    public UsuarioController(UsuarioService service, AvatarStorageService avatarStorageService) {
         this.service = service;
+        this.avatarStorageService = avatarStorageService;
     }
 
     @Operation(summary = "Listar usuarios activos", description = "Devuelve todos los usuarios con estado activo = true ordenados alfabéticamente por nombre completo.")
@@ -207,23 +213,33 @@ public class UsuarioController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Actualizar foto de perfil (avatar)", description = "Recibe la imagen del usuario y la almacena en formato binario en MySQL.")
+    @Operation(summary = "Subir foto de perfil (avatar)", description = "Recibe una imagen en multipart/form-data, la guarda en la carpeta uploads/avatares del servidor y almacena su URL en MySQL.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Avatar actualizado correctamente"),
-        @ApiResponse(responseCode = "400", description = "Imagen de avatar vacía o faltante"),
+        @ApiResponse(responseCode = "400", description = "Archivo vacío o formato no permitido"),
         @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    @PutMapping("/{id}/avatar")
+    @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Usuario> actualizarAvatar(
             @PathVariable Long id,
-            @RequestBody Map<String, byte[]> datos
+            @RequestParam("archivo") MultipartFile archivo
     ) {
-        byte[] avatar = datos != null ? datos.get("avatar") : null;
-        if (avatar == null || avatar.length == 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La imagen del avatar es obligatoria");
-        }
-        Usuario actualizado = service.actualizarAvatar(id, avatar);
+        Usuario actualizado = service.actualizarAvatar(id, archivo);
         return ResponseEntity.ok(actualizado);
+    }
+
+    @Operation(summary = "Obtener foto de perfil (avatar)", description = "Devuelve la imagen almacenada en la carpeta del servidor para mostrarla en la app.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Imagen obtenida correctamente"),
+        @ApiResponse(responseCode = "404", description = "Avatar no encontrado")
+    })
+    @GetMapping("/avatares/{nombreArchivo:.+}")
+    public ResponseEntity<Resource> obtenerAvatar(@PathVariable String nombreArchivo) {
+        Resource recurso = avatarStorageService.cargar(nombreArchivo);
+        MediaType mediaType = avatarStorageService.detectarMediaType(nombreArchivo);
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .body(recurso);
     }
 
     @Operation(summary = "Completar configuración de primer ingreso", description = "Guarda la pregunta y respuesta de seguridad cifrada, reemplaza la contraseña temporal por la definitiva y cambia primerIngreso a false.")
