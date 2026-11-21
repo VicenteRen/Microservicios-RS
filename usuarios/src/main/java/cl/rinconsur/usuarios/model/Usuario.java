@@ -20,7 +20,6 @@ public class Usuario {
     @Column(name = "rut", nullable = false, unique = true, length = 20)
     private String rut;
 
-    @NotBlank(message = "La contraseña es obligatoria")
     @Column(name = "contrasena", nullable = false)
     private String contrasena;
 

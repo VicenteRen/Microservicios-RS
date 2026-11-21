@@ -5,22 +5,35 @@ import cl.rinconsur.usuarios.repository.UsuarioRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
 public class UsuarioService {
 
     private static final String SAL = "RinconSur2026*";
+    private static final String MAYUSCULAS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    private static final String MINUSCULAS = "abcdefghijkmnopqrstuvwxyz";
+    private static final String DIGITOS = "23456789";
+    private static final String ESPECIALES = "*@#$_-!";
+    private static final String TODOS_CARACTERES = MAYUSCULAS + MINUSCULAS + DIGITOS + ESPECIALES;
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UsuarioRepository repository;
+    private final EmailService emailService;
 
-    public UsuarioService(UsuarioRepository repository) {
+    public UsuarioService(UsuarioRepository repository, EmailService emailService) {
         this.repository = repository;
+        this.emailService = emailService;
     }
 
     public String encriptarConSal(String texto) {
@@ -93,6 +106,7 @@ public class UsuarioService {
         return usuario;
     }
 
+    @Transactional
     public Usuario guardar(Usuario nuevo) {
         String rutLimpio = nuevo.getRut().trim().toUpperCase();
         String correoLimpio = nuevo.getCorreo().trim().toLowerCase();
@@ -110,6 +124,9 @@ public class UsuarioService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El teléfono ya está registrado por otro usuario activo");
         }
 
+        String nombreNormalizado = validarYNormalizarNombre(nuevo.getNombreCompleto());
+        String contrasenaTemporal = generarContrasenaTemporal();
+
         Long rolId = (nuevo.getRolId() != null && nuevo.getRolId() == 2L) ? 2L : 1L;
         String rolNombre = (rolId == 2L) ? "Administrador" : "Observador";
         String pregunta = (nuevo.getPreguntaSeguridad() != null && !nuevo.getPreguntaSeguridad().isBlank())
@@ -117,10 +134,12 @@ public class UsuarioService {
         String respuestaLimpia = (nuevo.getRespuestaSeguridad() != null && !nuevo.getRespuestaSeguridad().isBlank())
                 ? nuevo.getRespuestaSeguridad().trim().toLowerCase() : "pendiente";
 
+        Usuario guardado;
+
         if (existenteOpt.isPresent()) {
             Usuario existente = existenteOpt.get();
-            existente.setContrasena(encriptarConSal(nuevo.getContrasena()));
-            existente.setNombreCompleto(nuevo.getNombreCompleto().trim());
+            existente.setContrasena(encriptarConSal(contrasenaTemporal));
+            existente.setNombreCompleto(nombreNormalizado);
             existente.setCorreo(correoLimpio);
             existente.setTelefono(telefonoLimpio);
             existente.setPreguntaSeguridad(pregunta);
@@ -129,21 +148,31 @@ public class UsuarioService {
             existente.setRolNombre(rolNombre);
             existente.setPrimerIngreso(true);
             existente.setActivo(true);
-            return repository.save(existente);
+            guardado = repository.saveAndFlush(existente);
+        } else {
+            nuevo.setId(null);
+            nuevo.setRut(rutLimpio);
+            nuevo.setContrasena(encriptarConSal(contrasenaTemporal));
+            nuevo.setNombreCompleto(nombreNormalizado);
+            nuevo.setCorreo(correoLimpio);
+            nuevo.setTelefono(telefonoLimpio);
+            nuevo.setPreguntaSeguridad(pregunta);
+            nuevo.setRespuestaSeguridad(encriptarConSal(respuestaLimpia));
+            nuevo.setRolId(rolId);
+            nuevo.setRolNombre(rolNombre);
+            nuevo.setPrimerIngreso(true);
+            nuevo.setActivo(true);
+            guardado = repository.saveAndFlush(nuevo);
         }
 
-        nuevo.setId(null);
-        nuevo.setRut(rutLimpio);
-        nuevo.setContrasena(encriptarConSal(nuevo.getContrasena()));
-        nuevo.setCorreo(correoLimpio);
-        nuevo.setTelefono(telefonoLimpio);
-        nuevo.setPreguntaSeguridad(pregunta);
-        nuevo.setRespuestaSeguridad(encriptarConSal(respuestaLimpia));
-        nuevo.setRolId(rolId);
-        nuevo.setRolNombre(rolNombre);
-        nuevo.setPrimerIngreso(true);
-        nuevo.setActivo(true);
-        return repository.save(nuevo);
+        emailService.enviarContrasenaTemporal(
+                correoLimpio,
+                guardado.getNombreCompleto(),
+                rutLimpio,
+                contrasenaTemporal
+        );
+
+        return guardado;
     }
 
     public Usuario actualizarPerfil(Long id, String nombre, String correo, String telefono) {
@@ -158,38 +187,7 @@ public class UsuarioService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El teléfono ya está registrado por otro usuario");
         }
 
-        
-    if (nombre == null) {
-        throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "El nombre es obligatorio"
-        );
-    }
-
-    String nombreLimpio = nombre.trim().replaceAll(" +", " ");
-
-    if (nombreLimpio.length() < 2
-            || nombreLimpio.length() > 100
-            || !nombreLimpio.matches("^[\\p{L}]+(?: [\\p{L}]+)*$")) {
-        throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "El nombre debe tener entre 2 y 100 caracteres, solo letras y espacios"
-        );
-    }
-
-    String[] palabras = nombreLimpio.toLowerCase(
-            java.util.Locale.forLanguageTag("es-CL")
-    ).split(" ");
-
-    for (int i = 0; i < palabras.length; i++) {
-        palabras[i] = palabras[i].substring(0, 1)
-                .toUpperCase(java.util.Locale.forLanguageTag("es-CL"))
-                + palabras[i].substring(1);
-    }
-
-    usuario.setNombreCompleto(String.join(" ", palabras));
-
-
+        usuario.setNombreCompleto(validarYNormalizarNombre(nombre));
         usuario.setCorreo(correoLimpio);
         usuario.setTelefono(telefonoLimpio);
         return repository.save(usuario);
@@ -248,7 +246,6 @@ public class UsuarioService {
         return usuario.getRespuestaSeguridad().equals(encriptarConSal(respuesta.toLowerCase()));
     }
 
-    
     public boolean restablecerContrasena(
             String rut,
             String pregunta,
@@ -301,7 +298,6 @@ public class UsuarioService {
         return true;
     }
 
-
     public Usuario actualizarAvatar(Long id, byte[] avatar) {
         Usuario usuario = buscarPorId(id);
         usuario.setAvatar(avatar);
@@ -321,6 +317,52 @@ public class UsuarioService {
         return true;
     }
 
+    private String generarContrasenaTemporal() {
+        List<Character> caracteres = new ArrayList<>();
+        caracteres.add(MAYUSCULAS.charAt(RANDOM.nextInt(MAYUSCULAS.length())));
+        caracteres.add(MINUSCULAS.charAt(RANDOM.nextInt(MINUSCULAS.length())));
+        caracteres.add(DIGITOS.charAt(RANDOM.nextInt(DIGITOS.length())));
+        caracteres.add(ESPECIALES.charAt(RANDOM.nextInt(ESPECIALES.length())));
+
+        while (caracteres.size() < 10) {
+            caracteres.add(TODOS_CARACTERES.charAt(RANDOM.nextInt(TODOS_CARACTERES.length())));
+        }
+
+        Collections.shuffle(caracteres, RANDOM);
+        StringBuilder sb = new StringBuilder(caracteres.size());
+        for (char c : caracteres) {
+            sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    private String validarYNormalizarNombre(String nombre) {
+        if (nombre == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El nombre es obligatorio"
+            );
+        }
+
+        String nombreLimpio = nombre.trim().replaceAll(" +", " ");
+
+        if (nombreLimpio.length() < 2
+                || nombreLimpio.length() > 100
+                || !nombreLimpio.matches("^[\\p{L}]+(?: [\\p{L}]+)*$")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El nombre debe tener entre 2 y 100 caracteres, solo letras y espacios"
+            );
+        }
+
+        Locale locale = Locale.forLanguageTag("es-CL");
+        String[] palabras = nombreLimpio.toLowerCase(locale).split(" ");
+        for (int i = 0; i < palabras.length; i++) {
+            palabras[i] = palabras[i].substring(0, 1).toUpperCase(locale)
+                    + palabras[i].substring(1);
+        }
+        return String.join(" ", palabras);
+    }
 
     private void validarNuevaContrasena(String contrasena) {
         if (contrasena == null
@@ -337,5 +379,4 @@ public class UsuarioService {
             );
         }
     }
-
 }

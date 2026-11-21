@@ -56,11 +56,15 @@ public class UsuarioController {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
-    @Operation(summary = "Crear o reactivar un usuario", description = "Registra un nuevo usuario con contraseña cifrada en SHA-256 y su primer ingreso. Valida unicidad de RUT, correo y teléfono; si el RUT estaba inactivo, lo reactiva.")
+    @Operation(
+        summary = "Crear o reactivar un usuario",
+        description = "Registra un nuevo usuario generando automáticamente una contraseña temporal cifrada en SHA-256 y enviándola por correo electrónico. Valida unicidad de RUT, correo y teléfono; si el RUT estaba inactivo, lo reactiva."
+    )
     @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "Usuario creado o reactivado exitosamente"),
+        @ApiResponse(responseCode = "201", description = "Usuario creado o reactivado exitosamente y correo temporal enviado"),
         @ApiResponse(responseCode = "400", description = "Datos inválidos o campos obligatorios faltantes"),
-        @ApiResponse(responseCode = "409", description = "RUT, correo o teléfono ya registrado por un usuario activo")
+        @ApiResponse(responseCode = "409", description = "RUT, correo o teléfono ya registrado por un usuario activo"),
+        @ApiResponse(responseCode = "502", description = "No fue posible enviar el correo con la contraseña temporal")
     })
     @PostMapping
     public ResponseEntity<Usuario> guardar(@Valid @RequestBody Usuario usuario) {
@@ -182,7 +186,6 @@ public class UsuarioController {
         @ApiResponse(responseCode = "400", description = "RUT o nueva contraseña faltantes"),
         @ApiResponse(responseCode = "404", description = "Usuario activo no encontrado para el RUT indicado")
     })
-    
     @PutMapping("/recuperar-contrasena")
     public ResponseEntity<Void> recuperarContrasena(
             @RequestBody Map<String, String> datos
@@ -203,7 +206,6 @@ public class UsuarioController {
 
         return ResponseEntity.ok().build();
     }
-
 
     @Operation(summary = "Actualizar foto de perfil (avatar)", description = "Recibe la imagen del usuario y la almacena en formato binario en MySQL.")
     @ApiResponses({
