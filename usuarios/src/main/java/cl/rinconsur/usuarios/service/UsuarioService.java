@@ -6,6 +6,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
@@ -30,10 +31,16 @@ public class UsuarioService {
 
     private final UsuarioRepository repository;
     private final EmailService emailService;
+    private final AvatarStorageService avatarStorageService;
 
-    public UsuarioService(UsuarioRepository repository, EmailService emailService) {
+    public UsuarioService(
+            UsuarioRepository repository,
+            EmailService emailService,
+            AvatarStorageService avatarStorageService
+    ) {
         this.repository = repository;
         this.emailService = emailService;
+        this.avatarStorageService = avatarStorageService;
     }
 
     public String encriptarConSal(String texto) {
@@ -298,10 +305,14 @@ public class UsuarioService {
         return true;
     }
 
-    public Usuario actualizarAvatar(Long id, byte[] avatar) {
+    public Usuario actualizarAvatar(Long id, MultipartFile archivo) {
         Usuario usuario = buscarPorId(id);
-        usuario.setAvatar(avatar);
-        return repository.save(usuario);
+        String avatarAnterior = usuario.getAvatarUrl();
+        String nombreArchivo = avatarStorageService.guardar(id, archivo);
+        usuario.setAvatarUrl("/api/usuarios/avatares/" + nombreArchivo);
+        Usuario guardado = repository.save(usuario);
+        avatarStorageService.eliminarSiExiste(avatarAnterior);
+        return guardado;
     }
 
     public boolean deshabilitar(Long id) {
