@@ -104,6 +104,9 @@ public class UsuarioService {
         if (rut == null || contrasena == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "RUT y contraseña obligatorios");
         }
+        if (contrasena.length() > 64) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseña no puede superar los 64 caracteres");
+        }
         Usuario usuario = repository.findByRutIgnoreCaseAndActivoTrue(rut.trim())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "RUT o contraseña incorrecta. Vuelva a intentarlo."));
 
@@ -270,6 +273,7 @@ public class UsuarioService {
         }
 
         boolean valida = nuevaContrasena.length() >= 8
+                && nuevaContrasena.length() <= 64
                 && nuevaContrasena.chars().anyMatch(Character::isUpperCase)
                 && nuevaContrasena.chars().anyMatch(Character::isDigit)
                 && nuevaContrasena.chars().anyMatch(
@@ -280,7 +284,7 @@ public class UsuarioService {
         if (!valida) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "La contraseña debe tener al menos 8 caracteres, una mayúscula, un número y un carácter especial"
+                    "La contraseña debe tener entre 8 y 64 caracteres, una mayúscula, un número y un carácter especial"
             );
         }
 
@@ -378,6 +382,7 @@ public class UsuarioService {
     private void validarNuevaContrasena(String contrasena) {
         if (contrasena == null
                 || contrasena.length() < 8
+                || contrasena.length() > 64
                 || contrasena.chars().noneMatch(Character::isUpperCase)
                 || contrasena.chars().noneMatch(Character::isDigit)
                 || contrasena.chars().noneMatch(
@@ -386,7 +391,7 @@ public class UsuarioService {
                 )) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "La contraseña debe tener mínimo 8 caracteres, una mayúscula, un número y un carácter especial"
+                    "La contraseña debe tener entre 8 y 64 caracteres, una mayúscula, un número y un carácter especial"
             );
         }
     }
