@@ -27,7 +27,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class RegistroObservacionLogicaAdicionalTest {
+class RegistroObservacionServiceAdicionalTest {
 
     @Mock private RegistroObservacionRepository repository;
     private RegistroObservacionService service;
