@@ -37,10 +37,10 @@ public class AccesoService {
 
         String codigoLimpio = acceso.getCodigo().trim().toUpperCase();
 
-        if (!codigoLimpio.matches("^[A-Z][0-9]$")) {
+        if (!codigoLimpio.matches("^[A-ZÑ][0-9]$")) {
             throw new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
-                "El código debe tener una letra (A-Z) seguida de un número (0-9), ej: A5"
+                "El código debe tener una letra (A-Z o Ñ) seguida de un número (0-9), ej: A5"
             );
         }
 

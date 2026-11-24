@@ -46,8 +46,12 @@ public class AccesoController {
         return service.listarActivos();
     }
 
-    @Operation(summary = "Crear un nuevo punto de acceso", description = "Valida el formato ^[A-Z][0-9]$ y registra un nuevo acceso. Si ya existen 5 activos, se crea deshabilitado.")
+    @Operation(
+        summary = "Crear un nuevo punto de acceso",
+        description = "Valida el formato ^[A-ZÑ][0-9]$ y registra un nuevo acceso. Si ya existen 5 activos, se crea deshabilitado."
+    )
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<Acceso> guardar(@Valid @RequestBody Acceso acceso) {
         Acceso guardado = service.guardar(acceso);
         return ResponseEntity.status(HttpStatus.CREATED).body(guardado);
